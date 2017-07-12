@@ -35,8 +35,44 @@ private :
 	bool _bSendFlag;
 
 public :
-	void PostRecv();
-	void PostSend();
+	void PostRecv()
+	{
+		int retval, iCount = 1;
+		DWORD dwRecvSize, dwflag = 0;
+		WSABUF wsabuf[2];
+
+		wsabuf[0].buf = _RecvQ.GetWriteBufferPtr();
+		wsabuf[0].len = _RecvQ.GetNotBrokenPutSize();
+
+		if (_RecvQ.GetNotBrokenPutSize() != _RecvQ.GetFreeSize())
+		{
+			wsabuf[1].buf = _RecvQ.GetBufferPtr();
+			wsabuf[1].len = _RecvQ.GetFreeSize() - _RecvQ.GetNotBrokenPutSize();
+			iCount++;
+		}
+
+		InterlockedIncrement64((LONG64 *)&_lIOCount);
+		retval = WSARecv(_Socket, wsabuf, iCount, &dwRecvSize, &dwflag, &_RecvOverlapped, NULL);
+		if (retval == SOCKET_ERROR)
+		{
+			int iErrorCode = GetLastError();
+			if (iErrorCode != WSA_IO_PENDING)
+			{
+				if (iErrorCode != 10054)
+					wprintf(L"Error code : %d, RecvPost Error\n", iErrorCode);
+
+				if (0 == InterlockedDecrement64((LONG64 *)&_lIOCount))
+					//RemoveSession(_Socket);
+
+				return;
+			}
+		}
+	}
+
+	void PostSend()
+	{
+
+	}
 };
 
 #endif
